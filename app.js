@@ -76,7 +76,7 @@ app.post('/districts/', async (request, response) => {
   INSERT INTO 
     district(district_name, state_id, cases, cured, active, deaths)
   VALUES(
-    ${districtName}, '${stateId}', ${cases}, ${cured}, ${active}, ${deaths}
+    '${districtName}', ${stateId}, ${cases}, ${cured}, ${active}, ${deaths}
   );
   `
   await db.run(postDistrictsQuery)
@@ -130,12 +130,12 @@ app.put('/districts/:districtId/', async (request, response) => {
   UPDATE 
     district
   SET 
-    district_name: '${districtName}',
-    state_id: ${stateId},
-    cases: ${cases},
-    cured: ${cured},
-    active: ${active},
-    deaths: ${deaths}
+    district_name= '${districtName}',
+    state_id= ${stateId},
+    cases= ${cases},
+    cured= ${cured},
+    active= ${active},
+    deaths= ${deaths}
   WHERE 
     district_id = ${districtId};
   `
@@ -145,53 +145,65 @@ app.put('/districts/:districtId/', async (request, response) => {
 
 //API 7
 
-const getStatsResponse = (dbObj) =>{
-  return{
-    totalCases : dbObj.totalCases,
-    totalCured:dbObj.totalCured,
+const getStatsResponse = dbObj => {
+  return {
+    totalCases: dbObj.totalCases,
+    totalCured: dbObj.totalCured,
     totalActive: dbObj.totalActive,
-    totalDeaths: dbObj.totalDeaths
+    totalDeaths: dbObj.totalDeaths,
   }
 }
 
-app.get('/states/:stateId/stats/', async (request, response)=>{
-  const {stateId}= request.params
+app.get('/states/:stateId/stats/', async (request, response) => {
+  const {stateId} = request.params
   const statStateIdQuery = `
   SELECT 
-   totalCases as sum(cases),
-   totalCured as sum(cured),
-   totalActive as sum(active),
-   totalDeaths as sum(deaths)
+    SUM(cases),
+    SUM(cured),
+    SUM(active),
+    SUM(deaths)
   FROM 
     state
   WHERE
     state_id = ${stateId};
   `
-  const statsResponse = await db.get(statStateIdQuery);
-  response.send(getStatsResponse(statsResponse))
+  const statsResponse = await db.get(statStateIdQuery)
+  response.send({
+    totalCases: statsResponse['SUM(cases)'],
+    totalCured: statsResponse['SUM(cured)'],
+    totalActive: statsResponse['SUM(active)'],
+    totalDeaths: statsResponse['SUM(deaths)'],
+  })
 })
-
-
 
 //API 8
 
-const getStateName = (dbObj) =>{
+const getTheStateName = dbObj => {
   return {
-    stateName: dbObj.state_name
+    stateName: dbObj.stateName,
   }
 }
 
-app.get('/districts/:districtId/details/', async (request,response)=>{
-  const {districtId} = request.params;
-  const districtStateNameQeury = `
-  SELECT 
-    *
-  FROM 
-    district
-  WHERE
-    district_id = ${districtId};
-  `
-  const stateName = await db.get(districtStateNameQeury);
-  response.send(getStateName(stateName))
+app.get('/districts/:districtId/details/', async (request, response) => {
+  const {districtId} = request.params
+  const getDistrictIdQuery = `
+    SELECT 
+      state_id 
+    FROM 
+      district
+    WHERE 
+      district_id = ${districtId};
+    `
+  const getDistrictIdQueryResponse = await database.get(getDistrictIdQuery)
+  const getStateNameQuery = `
+    SELECT 
+      state_name as stateName 
+    FROM 
+      state
+    WHERE
+      state_id = ${getDistrictIdQueryResponse.state_id};
+    `
+  const getStateNameQueryResponse = await db.get(getStateNameQuery)
+  response.send(getTheStateName(getStateNameQueryResponse))
 })
 module.exports = app
